@@ -1,0 +1,69 @@
+# Dogcatcher — Beachhead deployment.
+# Notes baked in per BEACHHEAD hosting rules:
+#   - no `version:` key
+#   - `expose:` not `ports:` (Beachhead's nginx-proxy handles routing)
+#   - no `container_name:` (Beachhead assigns unique names per deploy)
+#   - every service on an explicit `internal` network
+#   - postgres healthcheck has start_period: 30s
+#   - postgres volume has a fixed `name:` so redeploys don't wipe data
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    expose:
+      - "80"
+    depends_on:
+      - backend
+    networks:
+      - internal
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    expose:
+      - "3001"
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: dogcatcher
+      DB_NAME: dogcatcher
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: dogcatcher
+      POSTGRES_DB: dogcatcher
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - dogcatcher-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dogcatcher"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    expose:
+      - "5432"
+    networks:
+      - internal
+    restart: unless-stopped
+
+networks:
+  internal:
+
+volumes:
+  dogcatcher-postgres:
+    name: dogcatcher-postgres
