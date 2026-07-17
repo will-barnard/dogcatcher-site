@@ -3,7 +3,7 @@
     <!-- MASTHEAD -->
     <header class="masthead">
       <img class="logo" src="/logo.png" alt="Dogcatcher" />
-      <p class="tagline">{{ content.hero_tagline }}</p>
+      <p v-if="content.hero_tagline" class="tagline">{{ content.hero_tagline }}</p>
     </header>
 
     <!-- NAV (anchors — it's all one page) -->
@@ -18,17 +18,17 @@
       <!-- ABOUT / HOME -->
       <section id="about" class="section">
         <h2 class="section-head"><span>welcome in</span><span class="marker">✦</span></h2>
-        <div class="panel prose">{{ content.about_body }}</div>
+        <div v-if="content.about_body" class="panel prose">{{ content.about_body }}</div>
       </section>
 
       <!-- JOURNAL -->
       <section id="journal" class="section">
         <h2 class="section-head"><span>the journal</span><span class="marker">✎</span></h2>
-        <p class="muted">{{ content.journal_intro }}</p>
+        <p v-if="content.journal_intro" class="muted">{{ content.journal_intro }}</p>
         <div v-if="posts.length === 0" class="panel muted">Nothing written down yet. Check back.</div>
         <article v-for="p in posts" :key="p.id" class="entry">
           <div class="date">{{ formatDate(p.published_at) }}</div>
-          <h3>{{ p.title || 'untitled' }}</h3>
+          <h3 v-if="p.title">{{ p.title }}</h3>
           <div class="body">{{ p.body }}</div>
           <hr />
         </article>
@@ -37,7 +37,7 @@
       <!-- SHOWS -->
       <section id="shows" class="section">
         <h2 class="section-head"><span>shows</span><span class="marker">☞</span></h2>
-        <p class="muted">{{ content.shows_intro }}</p>
+        <p v-if="content.shows_intro" class="muted">{{ content.shows_intro }}</p>
         <div v-if="shows.length === 0" class="panel muted">No dates on the books. Soon.</div>
         <table v-else class="shows">
           <thead>
@@ -70,7 +70,7 @@
 
       <!-- FOOTER -->
       <footer class="footer">
-        <div>{{ content.footer_text }}</div>
+        <div v-if="content.footer_text">{{ content.footer_text }}</div>
         <div style="margin-top:6px">
           &copy; {{ year }} Dogcatcher ·
           <router-link class="backstage-link" to="/backstage" title="staff only">·</router-link>
