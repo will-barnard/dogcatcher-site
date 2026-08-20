@@ -32,10 +32,10 @@
       <div class="backstage-bar">
         <span class="title">Dogcatcher · Backstage</span>
         <span>
-          <span class="hint" style="color:#cdbf9a">{{ me.username }} ({{ me.role }})</span>
+          <span class="hint" style="color:#c7c2a3">{{ me.username }} ({{ me.role }})</span>
           &nbsp;
-          <router-link to="/" class="btn ghost shrink" style="color:#f2ebd8">view site</router-link>
-          <button class="ghost" style="color:#f2ebd8" @click="doLogout">log out</button>
+          <router-link to="/" class="btn ghost shrink" style="color:#f4efdc">view site</router-link>
+          <button class="ghost" style="color:#f4efdc" @click="doLogout">log out</button>
         </span>
       </div>
 
@@ -64,7 +64,7 @@
         <!-- ---------- JOURNAL ---------- -->
         <div v-show="tab==='journal'" class="admin-section">
           <h2>Journal posts</h2>
-          <div class="list-item" style="background:#f0ead6">
+          <div class="list-item" style="background:#32532f">
             <label class="field">New entry — title</label>
             <input type="text" v-model="newPost.title" placeholder="a title, or leave blank" />
             <label class="field">Body</label>
@@ -89,7 +89,7 @@
         <!-- ---------- SHOWS ---------- -->
         <div v-show="tab==='shows'" class="admin-section">
           <h2>Shows</h2>
-          <div class="list-item" style="background:#f0ead6">
+          <div class="list-item" style="background:#32532f">
             <div class="row">
               <div><label class="field">Date (free text)</label><input type="text" v-model="newShow.show_date" placeholder="Aug 14 / TBA" /></div>
               <div><label class="field">Sort key</label><input type="text" v-model="newShow.sort_key" placeholder="2026-08-14" /></div>
@@ -126,7 +126,7 @@
         <!-- ---------- PHOTOS ---------- -->
         <div v-show="tab==='photos'" class="admin-section">
           <h2>Photos</h2>
-          <div class="list-item" style="background:#f0ead6">
+          <div class="list-item" style="background:#32532f">
             <label class="field">Upload an image</label>
             <input type="file" accept="image/*" ref="fileInput" @change="onFile" />
             <label class="field">Caption</label>
@@ -155,7 +155,7 @@
         <!-- ---------- ACCOUNTS (admin only) ---------- -->
         <div v-show="tab==='users'" v-if="me.role==='admin'" class="admin-section">
           <h2>Accounts</h2>
-          <div class="list-item" style="background:#f0ead6">
+          <div class="list-item" style="background:#32532f">
             <p class="hint">Create an account for a bandmate. Editors can change all site content; admins can also manage accounts.</p>
             <div class="row">
               <div><label class="field">Username</label><input type="text" v-model="newUser.username" /></div>
@@ -167,7 +167,7 @@
             <div style="margin-top:10px"><button @click="addUser" :disabled="busy">Create account</button></div>
           </div>
 
-          <table class="shows" style="background:#fbf7ea">
+          <table class="shows" style="background:#142418">
             <thead><tr><th>User</th><th>Role</th><th>Since</th><th></th></tr></thead>
             <tbody>
               <tr v-for="u in users" :key="u.id">

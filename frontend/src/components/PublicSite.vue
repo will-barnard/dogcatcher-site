@@ -44,7 +44,7 @@
             <tr><th>Date</th><th>Venue</th><th>City</th><th></th></tr>
           </thead>
           <tbody>
-            <tr v-for="s in shows" :key="s.id">
+            <tr v-for="s in shows" :key="s.id" :class="{ past: isPast(s) }">
               <td class="date">{{ s.show_date }}</td>
               <td>{{ s.venue }}</td>
               <td>{{ s.city }}</td>
@@ -100,6 +100,17 @@ function formatDate(iso) {
   if (!iso) return '';
   const d = new Date(iso);
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+// Struck-through, like a flyer someone's already crossed off —
+// only kicks in when the sort key actually parses as a date.
+function isPast(show) {
+  if (!show || !show.sort_key) return false;
+  const d = new Date(show.sort_key);
+  if (isNaN(d.getTime())) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return d < today;
 }
 
 onMounted(async () => {
