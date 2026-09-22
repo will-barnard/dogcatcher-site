@@ -95,8 +95,12 @@ a:hover { background: var(--burgundy); color: var(--cream); text-decoration: non
 }
 @keyframes blink { 50% { opacity: 0; } }
 
-/* ---- top nav ---- */
+/* ---- top nav ----
+   Hidden for now -- client wants a very simple, single-scroll page with
+   no navigation chrome. The markup and rules are untouched below, so
+   deleting the "display: none" line is all it takes to bring it back. */
 .topnav {
+  display: none;
   text-align: center;
   padding: 9px 6px;
   border-bottom: 1px dashed var(--rule);

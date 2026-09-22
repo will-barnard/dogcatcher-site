@@ -74,6 +74,19 @@ CREATE TABLE IF NOT EXISTS photos (
   sort_key INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Singleton-ish uploaded assets, keyed by name ('logo' today). Stores
+-- width/height captured client-side at upload time so the public site
+-- can set <img width height> and reserve layout space before the image
+-- loads -- no fade-in, no JS, just correct aspect ratio up front.
+CREATE TABLE IF NOT EXISTS site_assets (
+  key TEXT PRIMARY KEY,
+  mime TEXT NOT NULL DEFAULT 'image/png',
+  data BYTEA NOT NULL,
+  width INTEGER,
+  height INTEGER,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 `;
 
 async function seedIfEmpty() {

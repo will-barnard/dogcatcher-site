@@ -48,6 +48,7 @@
           <button :class="{ active: tab==='journal' }" @click="tab='journal'">Journal</button>
           <button :class="{ active: tab==='shows' }" @click="tab='shows'">Shows</button>
           <button :class="{ active: tab==='photos' }" @click="tab='photos'">Photos</button>
+          <button :class="{ active: tab==='logo' }" @click="tab='logo'">Logo</button>
           <button v-if="me.role==='admin'" :class="{ active: tab==='users' }" @click="tab='users'">Accounts</button>
         </div>
 
@@ -152,6 +153,22 @@
           </div>
         </div>
 
+        <!-- ---------- LOGO ---------- -->
+        <div v-show="tab==='logo'" class="admin-section">
+          <h2>Site logo</h2>
+          <p class="hint">Shown at the top of the public site. Upload a replacement any time — it swaps in immediately, no code changes needed.</p>
+          <div class="list-item" style="background:#32532f">
+            <img :src="logoPreviewSrc" alt="Current logo" style="max-width:240px;width:100%;height:auto;background:#142418;display:block;margin-bottom:12px" />
+            <label class="field">Upload a new logo</label>
+            <input type="file" accept="image/*" ref="logoFileInput" @change="onLogoFile" />
+            <div class="row" style="margin-top:10px">
+              <button class="shrink" @click="uploadLogo" :disabled="busy || !newLogo.file">Upload logo</button>
+              <button class="shrink danger" @click="resetLogo" :disabled="busy || !logoMeta.exists">Reset to default</button>
+            </div>
+            <p class="hint" style="margin-top:8px">Resetting removes the uploaded logo and goes back to the site's built-in one.</p>
+          </div>
+        </div>
+
         <!-- ---------- ACCOUNTS (admin only) ---------- -->
         <div v-show="tab==='users'" v-if="me.role==='admin'" class="admin-section">
           <h2>Accounts</h2>
@@ -188,7 +205,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted } from 'vue';
 import { api, setToken } from '../api.js';
 
 const setupComplete = ref(true);
@@ -203,9 +220,13 @@ const form = reactive({ username: '', password: '' });
 const content = reactive({});
 const textFields = [
   { key: 'hero_tagline', label: 'Header tagline (under the logo)', short: true },
+  { key: 'about_title', label: 'Home section title', short: true },
   { key: 'about_body', label: 'Home / about text' },
+  { key: 'journal_title', label: 'Journal section title', short: true },
   { key: 'journal_intro', label: 'Journal intro line', short: true },
+  { key: 'shows_title', label: 'Shows section title', short: true },
   { key: 'shows_intro', label: 'Shows intro line', short: true },
+  { key: 'gallery_title', label: 'Photos section title', short: true },
   { key: 'footer_text', label: 'Footer text', short: true },
 ];
 
@@ -216,6 +237,12 @@ const newShow = reactive({ show_date: '', venue: '', city: '', ticket_url: '', s
 const photos = ref([]);
 const newPhoto = reactive({ file: null, caption: '' });
 const fileInput = ref(null);
+const logoMeta = ref({ exists: false });
+const newLogo = reactive({ file: null, width: null, height: null });
+const logoFileInput = ref(null);
+const logoPreviewSrc = computed(() =>
+  logoMeta.value.exists ? `/api/assets/logo/raw?v=${encodeURIComponent(logoMeta.value.updated_at || '')}` : '/logo.png'
+);
 const users = ref([]);
 const newUser = reactive({ username: '', password: '', role: 'editor' });
 
@@ -234,11 +261,11 @@ async function refreshStatus() {
 }
 
 async function loadAll() {
-  const [c, p, sh, ph] = await Promise.all([
-    api.get('/content'), api.get('/posts'), api.get('/shows'), api.get('/photos'),
+  const [c, p, sh, ph, lm] = await Promise.all([
+    api.get('/content'), api.get('/posts'), api.get('/shows'), api.get('/photos'), api.get('/assets/logo/meta'),
   ]);
   Object.assign(content, c);
-  posts.value = p; shows.value = sh; photos.value = ph;
+  posts.value = p; shows.value = sh; photos.value = ph; logoMeta.value = lm;
   if (me.value && me.value.role === 'admin') users.value = await api.get('/users');
 }
 
@@ -346,6 +373,47 @@ async function deletePhoto(ph) {
   if (!confirm('Delete this photo?')) return;
   busy.value = true;
   try { await api.del('/photos/' + ph.id); photos.value = photos.value.filter(x => x.id !== ph.id); flash('Deleted.'); }
+  catch (e) { fail(e); } finally { busy.value = false; }
+}
+
+// ---- logo ----
+// Read the image's real pixel size in the browser before it ever reaches
+// the server, so the public page can set <img width height> and reserve
+// the right box on first paint — that's the whole fix for the load-in
+// snap, no animation involved.
+function onLogoFile(e) {
+  const file = e.target.files[0] || null;
+  newLogo.file = file;
+  newLogo.width = null;
+  newLogo.height = null;
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    newLogo.width = img.naturalWidth;
+    newLogo.height = img.naturalHeight;
+    URL.revokeObjectURL(url);
+  };
+  img.src = url;
+}
+async function uploadLogo() {
+  if (!newLogo.file) return;
+  busy.value = true;
+  try {
+    const fd = new FormData();
+    fd.append('image', newLogo.file);
+    if (newLogo.width) fd.append('width', newLogo.width);
+    if (newLogo.height) fd.append('height', newLogo.height);
+    logoMeta.value = await api.upload('/assets/logo', fd);
+    newLogo.file = null; newLogo.width = null; newLogo.height = null;
+    if (logoFileInput.value) logoFileInput.value.value = '';
+    flash('Logo updated.');
+  } catch (e) { fail(e); } finally { busy.value = false; }
+}
+async function resetLogo() {
+  if (!confirm('Remove the uploaded logo and go back to the default?')) return;
+  busy.value = true;
+  try { await api.del('/assets/logo'); logoMeta.value = { exists: false }; flash('Logo reset to default.'); }
   catch (e) { fail(e); } finally { busy.value = false; }
 }
 

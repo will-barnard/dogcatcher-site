@@ -275,6 +275,45 @@ app.delete('/api/photos/:id', authRequired, async (req, res) => {
   res.json({ ok: true });
 });
 
+// ---------- site assets (logo, etc.) ----------
+// Generic keyed blob store, same shape as photos. 'logo' is the only key
+// in use today; width/height come from the browser at upload time so the
+// <img> can carry them and avoid a layout jump while the file loads.
+app.get('/api/assets/:key/meta', async (req, res) => {
+  const { rows } = await query(
+    'SELECT width, height, updated_at FROM site_assets WHERE key=$1',
+    [req.params.key]
+  );
+  if (!rows[0]) return res.json({ exists: false });
+  res.json({ exists: true, width: rows[0].width, height: rows[0].height, updated_at: rows[0].updated_at });
+});
+
+app.get('/api/assets/:key/raw', async (req, res) => {
+  const { rows } = await query('SELECT mime, data FROM site_assets WHERE key=$1', [req.params.key]);
+  if (!rows[0]) return res.status(404).end();
+  res.set('Content-Type', rows[0].mime);
+  res.set('Cache-Control', 'public, max-age=86400');
+  res.send(rows[0].data);
+});
+
+app.post('/api/assets/:key', authRequired, upload.single('image'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No image uploaded' });
+  const width = parseInt(req.body.width, 10) || null;
+  const height = parseInt(req.body.height, 10) || null;
+  const { rows } = await query(
+    `INSERT INTO site_assets (key, mime, data, width, height, updated_at) VALUES ($1,$2,$3,$4,$5,now())
+     ON CONFLICT (key) DO UPDATE SET mime=EXCLUDED.mime, data=EXCLUDED.data, width=EXCLUDED.width, height=EXCLUDED.height, updated_at=now()
+     RETURNING key, width, height, updated_at`,
+    [req.params.key, req.file.mimetype || 'image/png', req.file.buffer, width, height]
+  );
+  res.json({ exists: true, ...rows[0] });
+});
+
+app.delete('/api/assets/:key', authRequired, async (req, res) => {
+  await query('DELETE FROM site_assets WHERE key=$1', [req.params.key]);
+  res.json({ ok: true });
+});
+
 // ---------- health ----------
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 

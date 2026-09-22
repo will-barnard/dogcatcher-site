@@ -2,7 +2,7 @@
   <div class="wrap">
     <!-- MASTHEAD -->
     <header class="masthead">
-      <img class="logo" src="/logo.png" alt="Dogcatcher" />
+      <img class="logo" :src="logoSrc" :width="logoMeta.width" :height="logoMeta.height" alt="Dogcatcher" />
       <p v-if="content.hero_tagline" class="tagline">{{ content.hero_tagline }}</p>
     </header>
 
@@ -17,13 +17,13 @@
     <main class="paper-pad">
       <!-- ABOUT / HOME -->
       <section id="about" class="section">
-        <h2 class="section-head"><span>welcome in</span><span class="marker">✦</span></h2>
+        <h2 class="section-head"><span>{{ content.about_title || 'welcome in' }}</span><span class="marker">✦</span></h2>
         <div v-if="content.about_body" class="panel prose">{{ content.about_body }}</div>
       </section>
 
       <!-- JOURNAL -->
       <section id="journal" class="section">
-        <h2 class="section-head"><span>the journal</span><span class="marker">✎</span></h2>
+        <h2 class="section-head"><span>{{ content.journal_title || 'the journal' }}</span><span class="marker">✎</span></h2>
         <p v-if="content.journal_intro" class="muted">{{ content.journal_intro }}</p>
         <div v-if="posts.length === 0" class="panel muted">Nothing written down yet. Check back.</div>
         <article v-for="p in posts" :key="p.id" class="entry">
@@ -36,7 +36,7 @@
 
       <!-- SHOWS -->
       <section id="shows" class="section">
-        <h2 class="section-head"><span>shows</span><span class="marker">☞</span></h2>
+        <h2 class="section-head"><span>{{ content.shows_title || 'shows' }}</span><span class="marker">☞</span></h2>
         <p v-if="content.shows_intro" class="muted">{{ content.shows_intro }}</p>
         <div v-if="shows.length === 0" class="panel muted">No dates on the books. Soon.</div>
         <table v-else class="shows">
@@ -58,7 +58,7 @@
 
       <!-- GALLERY -->
       <section id="gallery" class="section">
-        <h2 class="section-head"><span>photos</span><span class="marker">❂</span></h2>
+        <h2 class="section-head"><span>{{ content.gallery_title || 'photos' }}</span><span class="marker">❂</span></h2>
         <div v-if="photos.length === 0" class="panel muted">No photos up yet.</div>
         <div class="gallery">
           <figure v-for="ph in photos" :key="ph.id">
@@ -81,7 +81,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { api } from '../api.js';
 
 const content = ref({
@@ -95,6 +95,15 @@ const posts = ref([]);
 const shows = ref([]);
 const photos = ref([]);
 const year = new Date().getFullYear();
+
+// Default matches the real pixel size of frontend/public/logo.png, so
+// even a visitor who never uploaded a custom logo gets a reserved box.
+const logoMeta = ref({ exists: false, width: 5000, height: 3000, updated_at: '' });
+const logoSrc = computed(() =>
+  logoMeta.value.exists
+    ? `/api/assets/logo/raw?v=${encodeURIComponent(logoMeta.value.updated_at || '')}`
+    : '/logo.png'
+);
 
 function formatDate(iso) {
   if (!iso) return '';
@@ -115,16 +124,25 @@ function isPast(show) {
 
 onMounted(async () => {
   try {
-    const [c, p, s, ph] = await Promise.all([
+    const [c, p, s, ph, lm] = await Promise.all([
       api.get('/content'),
       api.get('/posts'),
       api.get('/shows'),
       api.get('/photos'),
+      api.get('/assets/logo/meta'),
     ]);
     content.value = { ...content.value, ...c };
     posts.value = p;
     shows.value = s;
     photos.value = ph;
+    if (lm && lm.exists) {
+      logoMeta.value = {
+        exists: true,
+        updated_at: lm.updated_at,
+        width: lm.width || 5000,
+        height: lm.height || 3000,
+      };
+    }
   } catch (e) {
     console.error('Failed to load site content', e);
   }
