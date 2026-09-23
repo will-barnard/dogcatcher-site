@@ -384,3 +384,100 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   .masthead img.logo { width: 92%; }
   .gallery img { height: 150px; }
 }
+
+
+/* ============================================================
+   EDITABLE BACKSTAGE
+   Backstage re-uses the public-site classes above so it looks like the
+   real page. These rules are only the click-to-edit affordances layered
+   on top: a dashed hover outline + pencil mark, the swapped-in
+   input/textarea, ghost "+ add" rows/tiles, and delete buttons tucked
+   into a corner. Deliberately no transitions -- state changes instantly,
+   matching the rest of the site.
+   ============================================================ */
+
+.editable {
+  cursor: pointer;
+  border: 1px dashed transparent;
+  padding: 1px 4px;
+  margin: -1px -4px;
+  display: inline;
+}
+.editable:hover { border-color: var(--rule); }
+.editable.empty { color: var(--cream-dim); font-style: italic; }
+.editable .edit-mark {
+  display: none;
+  margin-left: 6px;
+  font-size: 11px;
+  font-family: "Courier New", Courier, monospace;
+  color: var(--burgundy-bright);
+}
+.editable:hover .edit-mark { display: inline; }
+
+.editing-field textarea,
+.editing-field input { margin-bottom: 6px; }
+.editable-actions { display: flex; gap: 6px; }
+
+.ghost-add {
+  border: 1px dashed var(--rule);
+  text-align: center;
+  padding: 10px;
+  margin-top: 10px;
+  cursor: pointer;
+  color: var(--cream-dim);
+  font-family: "Courier New", Courier, monospace;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.ghost-add:hover { border-color: var(--burgundy-bright); color: var(--burgundy-bright); }
+.ghost-add.disabled { cursor: not-allowed; opacity: 0.5; }
+
+.gallery-add {
+  border: 1px dashed var(--rule);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 190px;
+  cursor: pointer;
+  color: var(--cream-dim);
+  font-family: "Courier New", Courier, monospace;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.gallery-add:hover { border-color: var(--burgundy-bright); color: var(--burgundy-bright); }
+.gallery-add.disabled { cursor: not-allowed; opacity: 0.5; }
+
+.editable-entry { position: relative; }
+.entry-delete { position: absolute; top: 0; right: 0; font-size: 11px; padding: 3px 8px; }
+
+.editable-photo { position: relative; cursor: grab; }
+.editable-photo.dragging { opacity: 0.4; }
+.editable-photo.drag-over { outline: 2px dashed var(--burgundy-bright); outline-offset: 2px; }
+.gallery-add.drag-over { border-color: var(--burgundy-bright); color: var(--burgundy-bright); }
+.photo-delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 1;
+  font-size: 13px;
+  line-height: 1;
+  padding: 2px 7px;
+}
+
+.editable-logo { position: relative; display: inline-block; cursor: pointer; }
+.logo-edit-mark {
+  display: none;
+  position: absolute;
+  inset: 0;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 12px;
+  background: rgba(20, 36, 24, 0.6);
+  color: var(--cream);
+  font-family: "Courier New", Courier, monospace;
+  font-size: 13px;
+}
+.editable-logo:hover .logo-edit-mark { display: flex; }

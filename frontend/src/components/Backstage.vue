@@ -28,6 +28,11 @@
     </div>
 
     <!-- ===================== LOGGED IN ===================== -->
+    <!-- This mirrors PublicSite.vue's markup (.wrap / .masthead / .section
+         etc.) on purpose, using the same classes, so editing here looks
+         like the real page. EditableField swaps text for an input/textarea
+         on click; ghost-add rows/tiles create a blank row you then click
+         into; delete buttons sit in the corner of each item. -->
     <div v-else>
       <div class="backstage-bar">
         <span class="title">Dogcatcher · Backstage</span>
@@ -39,141 +44,210 @@
         </span>
       </div>
 
-      <div class="backstage-body">
-        <div v-if="notice" class="ok">{{ notice }}</div>
-        <div v-if="error" class="err">{{ error }}</div>
+      <div v-if="notice" class="ok" style="margin:14px 26px 0">{{ notice }}</div>
+      <div v-if="error" class="err" style="margin:14px 26px 0">{{ error }}</div>
 
-        <div class="admin-tabs">
-          <button :class="{ active: tab==='text' }" @click="tab='text'">Page Text</button>
-          <button :class="{ active: tab==='journal' }" @click="tab='journal'">Journal</button>
-          <button :class="{ active: tab==='shows' }" @click="tab='shows'">Shows</button>
-          <button :class="{ active: tab==='photos' }" @click="tab='photos'">Photos</button>
-          <button :class="{ active: tab==='logo' }" @click="tab='logo'">Logo</button>
-          <button v-if="me.role==='admin'" :class="{ active: tab==='users' }" @click="tab='users'">Accounts</button>
-        </div>
-
-        <!-- ---------- PAGE TEXT ---------- -->
-        <div v-show="tab==='text'" class="admin-section">
-          <h2>Editable page text</h2>
-          <div v-for="f in textFields" :key="f.key" style="margin-bottom:16px">
-            <label class="field">{{ f.label }}</label>
-            <textarea v-model="content[f.key]" :style="f.short ? 'min-height:60px' : ''"></textarea>
+      <div class="wrap">
+        <!-- MASTHEAD -->
+        <header class="masthead">
+          <div class="editable-logo" @click="logoFileInput && logoFileInput.click()">
+            <img class="logo" :src="logoPreviewSrc" :width="logoMeta.width || 5000" :height="logoMeta.height || 3000" alt="Dogcatcher" />
+            <span class="logo-edit-mark">✎ click to change logo</span>
           </div>
-          <button @click="saveContent" :disabled="busy">Save page text</button>
-        </div>
+          <input type="file" accept="image/*" ref="logoFileInput" style="display:none" @change="onLogoFile" />
+          <div v-if="logoMeta.exists" style="text-align:center;margin-top:6px">
+            <button class="ghost shrink" @click="resetLogo" :disabled="busy">reset to default logo</button>
+          </div>
+          <EditableField
+            v-model="content.hero_tagline"
+            tag="div"
+            class="tagline"
+            placeholder="(click to add a tagline)"
+            :on-save="v => saveField('hero_tagline', v)"
+            @error="fail"
+            style="text-align:center"
+          />
+        </header>
 
-        <!-- ---------- JOURNAL ---------- -->
-        <div v-show="tab==='journal'" class="admin-section">
-          <h2>Journal posts</h2>
+        <main class="paper-pad">
+          <!-- ABOUT -->
+          <section id="about" class="section">
+            <h2 class="section-head">
+              <EditableField
+                v-model="content.about_title"
+                placeholder="welcome in"
+                :on-save="v => saveField('about_title', v)"
+                @error="fail"
+              />
+              <span class="marker">✦</span>
+            </h2>
+            <EditableField
+              v-model="content.about_body"
+              block
+              tag="div"
+              class="panel prose"
+              placeholder="(click to write the home / about text)"
+              :on-save="v => saveField('about_body', v)"
+              @error="fail"
+            />
+          </section>
+
+          <!-- JOURNAL -->
+          <section id="journal" class="section">
+            <h2 class="section-head">
+              <EditableField
+                v-model="content.journal_title"
+                placeholder="the journal"
+                :on-save="v => saveField('journal_title', v)"
+                @error="fail"
+              />
+              <span class="marker">✎</span>
+            </h2>
+            <EditableField
+              v-model="content.journal_intro"
+              tag="div"
+              class="muted"
+              placeholder="(click to add an intro line)"
+              :on-save="v => saveField('journal_intro', v)"
+              @error="fail"
+            />
+
+            <article v-for="p in posts" :key="p.id" class="entry editable-entry">
+              <button class="danger shrink entry-delete" @click="deletePost(p)" :disabled="busy">delete</button>
+              <div class="date">{{ formatDate(p.published_at) }}</div>
+              <EditableField
+                v-model="p.title"
+                tag="h3"
+                placeholder="(untitled — click to add one)"
+                :on-save="v => savePostField(p, 'title', v)"
+                @error="fail"
+              />
+              <EditableField
+                v-model="p.body"
+                block
+                tag="div"
+                class="body"
+                placeholder="(click to write this entry)"
+                :on-save="v => savePostField(p, 'body', v)"
+                @error="fail"
+              />
+              <hr />
+            </article>
+
+            <div class="ghost-add" @click="addPost" :class="{ disabled: busy }">+ new journal entry</div>
+          </section>
+
+          <!-- SHOWS -->
+          <section id="shows" class="section">
+            <h2 class="section-head">
+              <EditableField
+                v-model="content.shows_title"
+                placeholder="shows"
+                :on-save="v => saveField('shows_title', v)"
+                @error="fail"
+              />
+              <span class="marker">☞</span>
+            </h2>
+            <EditableField
+              v-model="content.shows_intro"
+              tag="div"
+              class="muted"
+              placeholder="(click to add an intro line)"
+              :on-save="v => saveField('shows_intro', v)"
+              @error="fail"
+            />
+
+            <table class="shows">
+              <thead>
+                <tr><th>Date</th><th>Venue</th><th>City</th><th>Tickets</th><th></th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="s in shows" :key="s.id">
+                  <td>
+                    <EditableField v-model="s.show_date" placeholder="date" :on-save="v => saveShowField(s, 'show_date', v)" @error="fail" />
+                    <div class="hint" style="margin-top:4px;white-space:nowrap">
+                      sort key:
+                      <EditableField v-model="s.sort_key" placeholder="2026-08-14" :on-save="v => saveShowField(s, 'sort_key', v)" @error="fail" />
+                    </div>
+                  </td>
+                  <td><EditableField v-model="s.venue" placeholder="venue" :on-save="v => saveShowField(s, 'venue', v)" @error="fail" /></td>
+                  <td><EditableField v-model="s.city" placeholder="city" :on-save="v => saveShowField(s, 'city', v)" @error="fail" /></td>
+                  <td><EditableField v-model="s.ticket_url" type="url" placeholder="ticket link" :on-save="v => saveShowField(s, 'ticket_url', v)" @error="fail" /></td>
+                  <td><button class="danger shrink" @click="deleteShow(s)" :disabled="busy">delete</button></td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="ghost-add" @click="addShow" :class="{ disabled: busy }">+ add a show</div>
+            <div class="hint" style="margin-top:6px">Shows sort by "sort key" ascending — use a date like 2026-08-14 to keep them in order, and it's what marks a show as past.</div>
+          </section>
+
+          <!-- GALLERY -->
+          <section id="gallery" class="section">
+            <h2 class="section-head">
+              <EditableField
+                v-model="content.gallery_title"
+                placeholder="photos"
+                :on-save="v => saveField('gallery_title', v)"
+                @error="fail"
+              />
+              <span class="marker">❂</span>
+            </h2>
+            <div class="gallery">
+              <figure
+                v-for="ph in photos"
+                :key="ph.id"
+                class="editable-photo"
+                :class="{ dragging: draggingPhotoId === ph.id, 'drag-over': dragOverPhotoId === ph.id }"
+                draggable="true"
+                @dragstart="onPhotoDragStart(ph, $event)"
+                @dragover.prevent="onPhotoDragOver(ph)"
+                @dragleave="onPhotoDragLeave(ph)"
+                @drop.prevent="onPhotoDrop(ph)"
+                @dragend="onPhotoDragEnd"
+              >
+                <button class="danger shrink photo-delete" @click="deletePhoto(ph)" :disabled="busy" title="Delete photo">×</button>
+                <img :src="`/api/photos/${ph.id}/raw`" :alt="ph.caption" draggable="false" />
+                <EditableField
+                  v-model="ph.caption"
+                  tag="figcaption"
+                  placeholder="(click to add a caption)"
+                  :on-save="v => savePhotoField(ph, v)"
+                  @error="fail"
+                />
+              </figure>
+              <div
+                class="gallery-add"
+                :class="{ disabled: busy, 'drag-over': dragOverPhotoId === 'add' }"
+                @click="photoFileInput && photoFileInput.click()"
+                @dragover.prevent="dragOverPhotoId = 'add'"
+                @dragleave="dragOverPhotoId = null"
+                @drop.prevent="onGalleryAddDrop"
+              >+ add photo</div>
+              <input type="file" accept="image/*" ref="photoFileInput" style="display:none" @change="onGalleryFile" />
+            </div>
+            <p class="hint" style="margin-top:6px">Drag photos to reorder them.</p>
+          </section>
+
+          <!-- FOOTER -->
+          <footer class="footer">
+            <EditableField
+              v-model="content.footer_text"
+              tag="div"
+              placeholder="(click to add footer text)"
+              :on-save="v => saveField('footer_text', v)"
+              @error="fail"
+            />
+          </footer>
+        </main>
+      </div>
+
+      <!-- ACCOUNTS — admin only, no public-site equivalent, so it stays a
+           plain panel rather than pretending to be part of the page. -->
+      <div v-if="me.role==='admin'" class="backstage-body" style="padding-top:0">
+        <div class="admin-section">
+          <h2>Accounts <span class="hint" style="text-transform:none;letter-spacing:0">— not shown on the public site</span></h2>
+          <p class="hint">Create an account for a bandmate. Editors can change all site content; admins can also manage accounts.</p>
           <div class="list-item" style="background:#32532f">
-            <label class="field">New entry — title</label>
-            <input type="text" v-model="newPost.title" placeholder="a title, or leave blank" />
-            <label class="field">Body</label>
-            <textarea v-model="newPost.body" placeholder="write something…"></textarea>
-            <div style="margin-top:10px"><button @click="addPost" :disabled="busy">Post entry</button></div>
-          </div>
-
-          <div v-for="p in posts" :key="p.id" class="list-item">
-            <label class="field">Title</label>
-            <input type="text" v-model="p.title" />
-            <label class="field">Body</label>
-            <textarea v-model="p.body"></textarea>
-            <div class="row" style="margin-top:10px">
-              <span class="hint shrink">{{ formatDate(p.published_at) }}</span>
-              <span></span>
-              <button class="shrink" @click="savePost(p)" :disabled="busy">Save</button>
-              <button class="shrink danger" @click="deletePost(p)" :disabled="busy">Delete</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- ---------- SHOWS ---------- -->
-        <div v-show="tab==='shows'" class="admin-section">
-          <h2>Shows</h2>
-          <div class="list-item" style="background:#32532f">
-            <div class="row">
-              <div><label class="field">Date (free text)</label><input type="text" v-model="newShow.show_date" placeholder="Aug 14 / TBA" /></div>
-              <div><label class="field">Sort key</label><input type="text" v-model="newShow.sort_key" placeholder="2026-08-14" /></div>
-            </div>
-            <div class="row">
-              <div><label class="field">Venue</label><input type="text" v-model="newShow.venue" /></div>
-              <div><label class="field">City</label><input type="text" v-model="newShow.city" /></div>
-            </div>
-            <label class="field">Ticket URL</label>
-            <input type="url" v-model="newShow.ticket_url" placeholder="https://…" />
-            <div style="margin-top:10px"><button @click="addShow" :disabled="busy">Add show</button></div>
-            <div class="hint">Shows sort by “sort key” ascending — use a date like 2026-08-14 to keep them in order.</div>
-          </div>
-
-          <div v-for="s in shows" :key="s.id" class="list-item">
-            <div class="row">
-              <div><label class="field">Date</label><input type="text" v-model="s.show_date" /></div>
-              <div><label class="field">Sort key</label><input type="text" v-model="s.sort_key" /></div>
-            </div>
-            <div class="row">
-              <div><label class="field">Venue</label><input type="text" v-model="s.venue" /></div>
-              <div><label class="field">City</label><input type="text" v-model="s.city" /></div>
-            </div>
-            <label class="field">Ticket URL</label>
-            <input type="url" v-model="s.ticket_url" />
-            <div class="row" style="margin-top:10px">
-              <span></span>
-              <button class="shrink" @click="saveShow(s)" :disabled="busy">Save</button>
-              <button class="shrink danger" @click="deleteShow(s)" :disabled="busy">Delete</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- ---------- PHOTOS ---------- -->
-        <div v-show="tab==='photos'" class="admin-section">
-          <h2>Photos</h2>
-          <div class="list-item" style="background:#32532f">
-            <label class="field">Upload an image</label>
-            <input type="file" accept="image/*" ref="fileInput" @change="onFile" />
-            <label class="field">Caption</label>
-            <input type="text" v-model="newPhoto.caption" placeholder="optional caption" />
-            <div style="margin-top:10px"><button @click="uploadPhoto" :disabled="busy || !newPhoto.file">Upload photo</button></div>
-          </div>
-
-          <div v-for="ph in photos" :key="ph.id" class="list-item">
-            <div class="thumb-row">
-              <img :src="`/api/photos/${ph.id}/raw`" :alt="ph.caption" />
-              <div style="flex:1">
-                <label class="field">Caption</label>
-                <input type="text" v-model="ph.caption" />
-                <label class="field">Order</label>
-                <input type="text" v-model="ph.sort_key" style="max-width:120px" />
-                <div class="row" style="margin-top:10px">
-                  <span></span>
-                  <button class="shrink" @click="savePhoto(ph)" :disabled="busy">Save</button>
-                  <button class="shrink danger" @click="deletePhoto(ph)" :disabled="busy">Delete</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ---------- LOGO ---------- -->
-        <div v-show="tab==='logo'" class="admin-section">
-          <h2>Site logo</h2>
-          <p class="hint">Shown at the top of the public site. Upload a replacement any time — it swaps in immediately, no code changes needed.</p>
-          <div class="list-item" style="background:#32532f">
-            <img :src="logoPreviewSrc" alt="Current logo" style="max-width:240px;width:100%;height:auto;background:#142418;display:block;margin-bottom:12px" />
-            <label class="field">Upload a new logo</label>
-            <input type="file" accept="image/*" ref="logoFileInput" @change="onLogoFile" />
-            <div class="row" style="margin-top:10px">
-              <button class="shrink" @click="uploadLogo" :disabled="busy || !newLogo.file">Upload logo</button>
-              <button class="shrink danger" @click="resetLogo" :disabled="busy || !logoMeta.exists">Reset to default</button>
-            </div>
-            <p class="hint" style="margin-top:8px">Resetting removes the uploaded logo and goes back to the site's built-in one.</p>
-          </div>
-        </div>
-
-        <!-- ---------- ACCOUNTS (admin only) ---------- -->
-        <div v-show="tab==='users'" v-if="me.role==='admin'" class="admin-section">
-          <h2>Accounts</h2>
-          <div class="list-item" style="background:#32532f">
-            <p class="hint">Create an account for a bandmate. Editors can change all site content; admins can also manage accounts.</p>
             <div class="row">
               <div><label class="field">Username</label><input type="text" v-model="newUser.username" /></div>
               <div><label class="field">Password</label><input type="text" v-model="newUser.password" placeholder="6+ characters" /></div>
@@ -207,38 +281,22 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue';
 import { api, setToken } from '../api.js';
+import EditableField from './EditableField.vue';
 
 const setupComplete = ref(true);
 const me = ref(null);
 const busy = ref(false);
 const error = ref('');
 const notice = ref('');
-const tab = ref('text');
 
 const form = reactive({ username: '', password: '' });
 
 const content = reactive({});
-const textFields = [
-  { key: 'hero_tagline', label: 'Header tagline (under the logo)', short: true },
-  { key: 'about_title', label: 'Home section title', short: true },
-  { key: 'about_body', label: 'Home / about text' },
-  { key: 'journal_title', label: 'Journal section title', short: true },
-  { key: 'journal_intro', label: 'Journal intro line', short: true },
-  { key: 'shows_title', label: 'Shows section title', short: true },
-  { key: 'shows_intro', label: 'Shows intro line', short: true },
-  { key: 'gallery_title', label: 'Photos section title', short: true },
-  { key: 'footer_text', label: 'Footer text', short: true },
-];
-
 const posts = ref([]);
-const newPost = reactive({ title: '', body: '' });
 const shows = ref([]);
-const newShow = reactive({ show_date: '', venue: '', city: '', ticket_url: '', sort_key: '' });
 const photos = ref([]);
-const newPhoto = reactive({ file: null, caption: '' });
-const fileInput = ref(null);
+const photoFileInput = ref(null);
 const logoMeta = ref({ exists: false });
-const newLogo = reactive({ file: null, width: null, height: null });
 const logoFileInput = ref(null);
 const logoPreviewSrc = computed(() =>
   logoMeta.value.exists ? `/api/assets/logo/raw?v=${encodeURIComponent(logoMeta.value.updated_at || '')}` : '/logo.png'
@@ -295,29 +353,26 @@ async function doLogout() {
   setToken(null); me.value = null; form.username = ''; form.password = '';
 }
 
-// ---- content ----
-async function saveContent() {
-  busy.value = true;
-  try {
-    for (const f of textFields) {
-      await api.put('/content/' + f.key, { value: content[f.key] || '' });
-    }
-    flash('Page text saved.');
-  } catch (e) { fail(e); } finally { busy.value = false; }
+// ---- page text (each field saves itself the moment you click Save on it) ----
+async function saveField(key, value) {
+  await api.put('/content/' + key, { value });
 }
 
 // ---- posts ----
 async function addPost() {
+  if (busy.value) return;
   busy.value = true;
   try {
-    const p = await api.post('/posts', { title: newPost.title, body: newPost.body });
-    posts.value.unshift(p); newPost.title = ''; newPost.body = ''; flash('Entry posted.');
+    const p = await api.post('/posts', { title: '', body: '' });
+    posts.value.unshift(p);
+    flash('New entry added — click it to write something.');
   } catch (e) { fail(e); } finally { busy.value = false; }
 }
-async function savePost(p) {
-  busy.value = true;
-  try { await api.put('/posts/' + p.id, { title: p.title, body: p.body }); flash('Saved.'); }
-  catch (e) { fail(e); } finally { busy.value = false; }
+async function savePostField(p, field, value) {
+  const payload = { title: p.title, body: p.body };
+  payload[field] = value;
+  const updated = await api.put('/posts/' + p.id, payload);
+  Object.assign(p, updated);
 }
 async function deletePost(p) {
   if (!confirm('Delete this entry?')) return;
@@ -328,18 +383,19 @@ async function deletePost(p) {
 
 // ---- shows ----
 async function addShow() {
+  if (busy.value) return;
   busy.value = true;
   try {
-    const s = await api.post('/shows', { ...newShow });
+    const s = await api.post('/shows', { show_date: '', venue: '', city: '', ticket_url: '', sort_key: '' });
     shows.value.push(s);
-    Object.assign(newShow, { show_date: '', venue: '', city: '', ticket_url: '', sort_key: '' });
-    flash('Show added.');
+    flash('Show added — click its cells to fill it in.');
   } catch (e) { fail(e); } finally { busy.value = false; }
 }
-async function saveShow(s) {
-  busy.value = true;
-  try { await api.put('/shows/' + s.id, { ...s }); flash('Saved.'); }
-  catch (e) { fail(e); } finally { busy.value = false; }
+async function saveShowField(s, field, value) {
+  const payload = { show_date: s.show_date, venue: s.venue, city: s.city, ticket_url: s.ticket_url, sort_key: s.sort_key };
+  payload[field] = value;
+  const updated = await api.put('/shows/' + s.id, payload);
+  Object.assign(s, updated);
 }
 async function deleteShow(s) {
   if (!confirm('Delete this show?')) return;
@@ -349,25 +405,90 @@ async function deleteShow(s) {
 }
 
 // ---- photos ----
-function onFile(e) { newPhoto.file = e.target.files[0] || null; }
-async function uploadPhoto() {
-  if (!newPhoto.file) return;
+// Clicking the "+ add photo" tile opens the file picker; picking a file
+// uploads it right away with an empty caption, so the new tile appears
+// immediately and the caption is just another click-to-edit field.
+async function onGalleryFile(e) {
+  const file = e.target.files[0] || null;
+  if (!file) return;
   busy.value = true;
   try {
     const fd = new FormData();
-    fd.append('image', newPhoto.file);
-    fd.append('caption', newPhoto.caption || '');
+    fd.append('image', file);
+    fd.append('caption', '');
     const ph = await api.upload('/photos', fd);
     photos.value.push(ph);
-    newPhoto.file = null; newPhoto.caption = '';
-    if (fileInput.value) fileInput.value.value = '';
-    flash('Photo uploaded.');
-  } catch (e) { fail(e); } finally { busy.value = false; }
+    flash('Photo added — click its caption to describe it.');
+  } catch (e) { fail(e); } finally {
+    busy.value = false;
+    if (photoFileInput.value) photoFileInput.value.value = '';
+  }
 }
-async function savePhoto(ph) {
+async function savePhotoField(ph, value) {
+  const updated = await api.put('/photos/' + ph.id, { caption: value, sort_key: ph.sort_key });
+  Object.assign(ph, updated);
+}
+
+// Native HTML5 drag-and-drop -- no library, matches how the rest of this
+// app is built. Dragging just reorders the local array; the drop handler
+// then writes fresh sequential sort_keys back for whichever photos moved.
+const draggingPhotoId = ref(null);
+const dragOverPhotoId = ref(null);
+
+function onPhotoDragStart(ph, e) {
+  if (busy.value) { e.preventDefault(); return; }
+  draggingPhotoId.value = ph.id;
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move';
+    // Firefox refuses to start a drag without data actually being set.
+    e.dataTransfer.setData('text/plain', String(ph.id));
+  }
+}
+function onPhotoDragOver(ph) {
+  if (draggingPhotoId.value === null || draggingPhotoId.value === ph.id) return;
+  dragOverPhotoId.value = ph.id;
+}
+function onPhotoDragLeave(ph) {
+  if (dragOverPhotoId.value === ph.id) dragOverPhotoId.value = null;
+}
+function onPhotoDragEnd() {
+  draggingPhotoId.value = null;
+  dragOverPhotoId.value = null;
+}
+async function onPhotoDrop(ph) {
+  const fromId = draggingPhotoId.value;
+  draggingPhotoId.value = null;
+  dragOverPhotoId.value = null;
+  if (fromId === null || fromId === ph.id) return;
+  const fromIdx = photos.value.findIndex(x => x.id === fromId);
+  const toIdx = photos.value.findIndex(x => x.id === ph.id);
+  if (fromIdx === -1 || toIdx === -1) return;
+  const [moved] = photos.value.splice(fromIdx, 1);
+  photos.value.splice(toIdx, 0, moved);
+  await persistPhotoOrder();
+}
+async function onGalleryAddDrop() {
+  const fromId = draggingPhotoId.value;
+  draggingPhotoId.value = null;
+  dragOverPhotoId.value = null;
+  if (fromId === null) return;
+  const fromIdx = photos.value.findIndex(x => x.id === fromId);
+  if (fromIdx === -1) return;
+  const [moved] = photos.value.splice(fromIdx, 1);
+  photos.value.push(moved);
+  await persistPhotoOrder();
+}
+async function persistPhotoOrder() {
   busy.value = true;
-  try { await api.put('/photos/' + ph.id, { caption: ph.caption, sort_key: parseInt(ph.sort_key) || 0 }); flash('Saved.'); }
-  catch (e) { fail(e); } finally { busy.value = false; }
+  try {
+    for (let i = 0; i < photos.value.length; i++) {
+      const ph = photos.value[i];
+      if (ph.sort_key === i) continue;
+      const updated = await api.put('/photos/' + ph.id, { caption: ph.caption, sort_key: i });
+      Object.assign(ph, updated);
+    }
+    flash('Photo order saved.');
+  } catch (e) { fail(e); } finally { busy.value = false; }
 }
 async function deletePhoto(ph) {
   if (!confirm('Delete this photo?')) return;
@@ -379,36 +500,34 @@ async function deletePhoto(ph) {
 // ---- logo ----
 // Read the image's real pixel size in the browser before it ever reaches
 // the server, so the public page can set <img width height> and reserve
-// the right box on first paint — that's the whole fix for the load-in
-// snap, no animation involved.
-function onLogoFile(e) {
-  const file = e.target.files[0] || null;
-  newLogo.file = file;
-  newLogo.width = null;
-  newLogo.height = null;
-  if (!file) return;
-  const url = URL.createObjectURL(file);
-  const img = new Image();
-  img.onload = () => {
-    newLogo.width = img.naturalWidth;
-    newLogo.height = img.naturalHeight;
-    URL.revokeObjectURL(url);
-  };
-  img.src = url;
+// the right box on first paint -- that's the whole fix for the load-in
+// snap, no animation involved. Clicking the logo itself opens the file
+// picker and uploads immediately, same one-click pattern as photos.
+function readImageSize(file) {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => { resolve({ width: img.naturalWidth, height: img.naturalHeight }); URL.revokeObjectURL(url); };
+    img.onerror = () => { resolve({ width: null, height: null }); URL.revokeObjectURL(url); };
+    img.src = url;
+  });
 }
-async function uploadLogo() {
-  if (!newLogo.file) return;
+async function onLogoFile(e) {
+  const file = e.target.files[0] || null;
+  if (!file) return;
   busy.value = true;
   try {
+    const dims = await readImageSize(file);
     const fd = new FormData();
-    fd.append('image', newLogo.file);
-    if (newLogo.width) fd.append('width', newLogo.width);
-    if (newLogo.height) fd.append('height', newLogo.height);
+    fd.append('image', file);
+    if (dims.width) fd.append('width', dims.width);
+    if (dims.height) fd.append('height', dims.height);
     logoMeta.value = await api.upload('/assets/logo', fd);
-    newLogo.file = null; newLogo.width = null; newLogo.height = null;
-    if (logoFileInput.value) logoFileInput.value.value = '';
     flash('Logo updated.');
-  } catch (e) { fail(e); } finally { busy.value = false; }
+  } catch (e) { fail(e); } finally {
+    busy.value = false;
+    if (logoFileInput.value) logoFileInput.value.value = '';
+  }
 }
 async function resetLogo() {
   if (!confirm('Remove the uploaded logo and go back to the default?')) return;
